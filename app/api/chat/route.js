@@ -2,10 +2,16 @@
 import { NextResponse } from "next/server";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 export async function POST(request) {
   try {
+    if (!GEMINI_API_KEY) {
+      console.error("Missing GEMINI_API_KEY");
+      return NextResponse.json({ error: "AI service is not configured" }, { status: 500 });
+    }
+
     const { messages, topic } = await request.json();
 
     if (!Array.isArray(messages) || messages.length === 0) {

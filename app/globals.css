@@ -1,5 +1,119 @@
+/* app/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Base layer: smooth theme transitions ── */
+@layer base {
+  * {
+    @apply transition-colors duration-200;
+  }
 
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 font-sans antialiased;
+    @apply dark:bg-gray-950 dark:text-gray-100;
+  }
+
+  /* Custom scrollbar — light */
+  ::-webkit-scrollbar       { @apply w-1.5; }
+  ::-webkit-scrollbar-track { @apply bg-gray-100 dark:bg-gray-900; }
+  ::-webkit-scrollbar-thumb { @apply bg-gray-300 dark:bg-gray-700 rounded-full; }
+}
+
+/* ── Reusable component classes ── */
+@layer components {
+
+  /* Cards */
+  .card {
+    @apply bg-white dark:bg-gray-900
+           border border-gray-200 dark:border-gray-800
+           rounded-2xl shadow-sm;
+  }
+
+  /* Primary button */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           px-5 py-2.5 rounded-xl font-semibold text-sm
+           bg-brand-500 hover:bg-brand-600 active:bg-brand-700
+           text-white shadow-sm
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-150;
+  }
+
+  /* Ghost button */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           px-4 py-2 rounded-xl font-medium text-sm
+           border border-gray-200 dark:border-gray-700
+           text-gray-600 dark:text-gray-400
+           hover:bg-gray-100 dark:hover:bg-gray-800
+           transition-all duration-150;
+  }
+
+  /* Sidebar topic button */
+  .topic-btn {
+    @apply w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-medium
+           border-2 border-transparent
+           text-gray-600 dark:text-gray-400
+           hover:bg-brand-50 dark:hover:bg-brand-900/20
+           hover:text-brand-600 dark:hover:text-brand-400
+           transition-all duration-150 cursor-pointer;
+  }
+
+  .topic-btn.active {
+    @apply border-brand-400 bg-brand-50 dark:bg-brand-900/30
+           text-brand-700 dark:text-brand-300 font-semibold;
+  }
+
+  /* Chat bubble */
+  .bubble-user {
+    @apply self-end bg-brand-500 text-white
+           rounded-2xl rounded-br-sm px-4 py-2.5
+           max-w-[80%] text-sm leading-relaxed shadow-sm;
+  }
+
+  .bubble-ai {
+    @apply self-start bg-white dark:bg-gray-800
+           border border-gray-200 dark:border-gray-700
+           text-gray-800 dark:text-gray-200
+           rounded-2xl rounded-bl-sm px-4 py-2.5
+           max-w-[80%] text-sm leading-relaxed shadow-sm;
+  }
+
+  /* Quiz option buttons */
+  .quiz-option {
+    @apply w-full text-left px-4 py-2.5 rounded-xl text-sm
+           border-2 border-gray-200 dark:border-gray-700
+           bg-white dark:bg-gray-800
+           text-gray-700 dark:text-gray-300
+           hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20
+           disabled:cursor-default
+           transition-all duration-150 cursor-pointer;
+  }
+
+  .quiz-option.selected {
+    @apply border-brand-400 bg-brand-50 dark:bg-brand-900/30
+           text-brand-700 dark:text-brand-300;
+  }
+
+  .quiz-option.correct {
+    @apply border-green-400 bg-green-50 dark:bg-green-900/20
+           text-green-700 dark:text-green-400;
+  }
+
+  .quiz-option.wrong {
+    @apply border-red-400 bg-red-50 dark:bg-red-900/20
+           text-red-700 dark:text-red-400;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    @apply bg-gray-200 dark:bg-gray-800 rounded-lg animate-pulse;
+  }
+}

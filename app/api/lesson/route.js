@@ -12,10 +12,79 @@ import { NextResponse } from "next/server";
 // In .env.local:  GEMINI_API_KEY=your_key_here
 // Note: No NEXT_PUBLIC_ prefix — this is server-only. Good.
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+const LESSON_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string" },
+    summary: { type: "string" },
+    sections: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          heading: { type: "string" },
+          content: { type: "string" },
+        },
+        required: ["heading", "content"],
+      },
+    },
+    keyPoints: {
+      type: "array",
+      items: { type: "string" },
+    },
+    quiz: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          question: { type: "string" },
+          options: {
+            type: "array",
+            items: { type: "string" },
+          },
+          answer: { type: "string" },
+        },
+        required: ["question", "options", "answer"],
+      },
+    },
+  },
+  required: ["title", "summary", "sections", "keyPoints", "quiz"],
+};
+
+function parseLessonJson(raw) {
+  if (!raw) {
+    throw new Error("Gemini returned an empty response");
+  }
+
+  const cleaned = raw
+    .replace(/```(?:json)?/gi, "")
+    .replace(/```/g, "")
+    .trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error("Gemini response did not contain a JSON object");
+    }
+
+    return JSON.parse(cleaned.slice(start, end + 1));
+  }
+}
 
 export async function POST(request) {
   try {
+    if (!GEMINI_API_KEY) {
+      console.error("Missing GEMINI_API_KEY");
+      return NextResponse.json({ error: "AI service is not configured" }, { status: 500 });
+    }
+
     const { topic, level = "beginner" } = await request.json();
 
     // Basic input validation — never trust client data
@@ -40,7 +109,7 @@ export async function POST(request) {
         ]
       }
 
-      Return only valid JSON, no markdown fences.
+      Return only valid JSON. The quiz answer must exactly match one of its options.
     `;
 
     const geminiRes = await fetch(GEMINI_URL, {
@@ -50,7 +119,9 @@ export async function POST(request) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 1500,
+          maxOutputTokens: 3000,
+          responseMimeType: "application/json",
+          responseJsonSchema: LESSON_SCHEMA,
         },
       }),
     });
@@ -63,15 +134,7 @@ export async function POST(request) {
 
     const geminiData = await geminiRes.json();
     const raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    let lesson;
-    try {
-      lesson = JSON.parse(raw);
-    } catch {
-      // If Gemini wraps in markdown fences despite instructions, strip them
-      const cleaned = raw.replace(/```json|```/g, "").trim();
-      lesson = JSON.parse(cleaned);
-    }
+    const lesson = parseLessonJson(raw);
 
     return NextResponse.json({ lesson });
   } catch (err) {

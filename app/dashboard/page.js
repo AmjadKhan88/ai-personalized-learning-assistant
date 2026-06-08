@@ -1,37 +1,4 @@
 // app/dashboard/page.js
-// ─────────────────────────────────────────────────────────────
-// THE MAIN WIRING FILE — read this to understand data flow.
-//
-// DATA FLOW OVERVIEW:
-//
-//  [Firebase Auth] ──► AuthContext (user state)
-//         │
-//         ▼
-//  [Dashboard Page] ◄─ user.uid (from useAuth)
-//    │       │
-//    │       ▼
-//    │  [Firestore] ──► progress, weakAreas (loaded on mount)
-//    │
-//    ├──► TopicSelector
-//    │        │ onSelectTopic(topic)
-//    │        ▼
-//    │    sets `selectedTopic` state
-//    │        │
-//    │        ▼
-//    ├──► LessonDisplay ◄── POST /api/lesson { topic }
-//    │        │                    │
-//    │        │                    ▼
-//    │        │              Gemini 1.5 Flash
-//    │        │
-//    │        │ onComplete(score, weakTopics)
-//    │        ▼
-//    │    saveProgress() → Firestore
-//    │
-//    ├──► ChatInterface ◄── POST /api/chat { messages, topic }
-//    │
-//    └──► WeakAreasTracker ◄── Firestore weakAreas[]
-// ─────────────────────────────────────────────────────────────
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -48,28 +15,24 @@ export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  // ── State ─────────────────────────────────────────────────
-  const [selectedTopic, setSelectedTopic] = useState(null);
-  const [lesson, setLesson] = useState(null);
-  const [lessonLoading, setLessonLoading] = useState(false);
-  const [lessonError, setLessonError] = useState(null);
-  const [progress, setProgress] = useState([]);   // [{topic, score, completedAt}]
-  const [weakAreas, setWeakAreas] = useState([]);  // [topicString, ...]
-  const [chatMessages, setChatMessages] = useState([]); // [{role, text}]
+  const [selectedTopic, setSelectedTopic]   = useState(null);
+  const [lesson, setLesson]                 = useState(null);
+  const [lessonLoading, setLessonLoading]   = useState(false);
+  const [lessonError, setLessonError]       = useState(null);
+  const [progress, setProgress]             = useState([]);
+  const [weakAreas, setWeakAreas]           = useState([]);
+  const [chatMessages, setChatMessages]     = useState([]);
+  const [sidebarOpen, setSidebarOpen]       = useState(false);
 
-  // ── Auth guard ────────────────────────────────────────────
-  // Redirect unauthenticated users to login.
-  // We check `loading` first to avoid a flash redirect while Firebase warms up.
+  // Auth guard
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/login");
-    }
+    if (!loading && !user) router.replace("/login");
   }, [user, loading, router]);
 
-  // ── Load user data on mount ───────────────────────────────
+  // Load user data
   useEffect(() => {
     if (!user) return;
-    async function loadUserData() {
+    async function load() {
       const [prog, weak] = await Promise.all([
         getAllProgress(user.uid),
         getWeakAreas(user.uid),
@@ -77,174 +40,252 @@ export default function DashboardPage() {
       setProgress(prog);
       setWeakAreas(weak);
     }
-    loadUserData();
+    load();
   }, [user]);
 
-  // ── Lesson generation ─────────────────────────────────────
-  // Called when the user picks a topic from TopicSelector.
   const handleTopicSelect = useCallback(async (topic) => {
     setSelectedTopic(topic);
     setLesson(null);
     setLessonError(null);
-    setChatMessages([]); // Reset chat when switching topics
+    setChatMessages([]);
     setLessonLoading(true);
+    setSidebarOpen(false); // Close mobile sidebar on topic pick
 
     try {
-      // This hits our server-side API route → Gemini (key never leaves server)
       const res = await fetch("/api/lesson", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, level: "beginner" }),
       });
-
       if (!res.ok) throw new Error("Failed to load lesson");
       const { lesson } = await res.json();
       setLesson(lesson);
     } catch (err) {
       console.error(err);
-      setLessonError("Couldn't generate the lesson. Try again in a moment.");
+      setLessonError("Couldn't generate the lesson. Please try again.");
     } finally {
       setLessonLoading(false);
     }
   }, []);
 
-  // ── Lesson completion handler ─────────────────────────────
-  // LessonDisplay calls this after the user finishes the quiz.
-  // `weakTopics` = array of sub-topics the user got wrong.
-  const handleLessonComplete = useCallback(
-    async (score, weakTopics = []) => {
-      if (!user || !selectedTopic) return;
+  const handleLessonComplete = useCallback(async (score, weakTopics = []) => {
+    if (!user || !selectedTopic) return;
+    await saveProgress(user.uid, selectedTopic, score);
+    for (const wt of weakTopics) await addWeakArea(user.uid, wt);
+    const [prog, weak] = await Promise.all([
+      getAllProgress(user.uid),
+      getWeakAreas(user.uid),
+    ]);
+    setProgress(prog);
+    setWeakAreas(weak);
+  }, [user, selectedTopic]);
 
-      // Save to Firestore
-      await saveProgress(user.uid, selectedTopic, score);
-
-      // Track weak areas if any quiz answers were wrong
-      for (const wt of weakTopics) {
-        await addWeakArea(user.uid, wt);
-      }
-
-      // Refresh local state so the WeakAreasTracker updates immediately
-      const [prog, weak] = await Promise.all([
-        getAllProgress(user.uid),
-        getWeakAreas(user.uid),
+  const handleSendMessage = useCallback(async (userText) => {
+    const newMessages = [...chatMessages, { role: "user", text: userText }];
+    setChatMessages(newMessages);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: newMessages, topic: selectedTopic }),
+      });
+      if (!res.ok) throw new Error("Chat failed");
+      const { reply } = await res.json();
+      setChatMessages((prev) => [...prev, { role: "model", text: reply }]);
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "model", text: "Sorry, I ran into an error. Try again!" },
       ]);
-      setProgress(prog);
-      setWeakAreas(weak);
-    },
-    [user, selectedTopic]
-  );
+    }
+  }, [chatMessages, selectedTopic]);
 
-  // ── Chat handler ──────────────────────────────────────────
-  // ChatInterface calls this with each new user message.
-  const handleSendMessage = useCallback(
-    async (userText) => {
-      const newMessages = [...chatMessages, { role: "user", text: userText }];
-      setChatMessages(newMessages);
-
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: newMessages, topic: selectedTopic }),
-        });
-
-        if (!res.ok) throw new Error("Chat failed");
-        const { reply } = await res.json();
-
-        // Append the model's reply to history
-        setChatMessages((prev) => [...prev, { role: "model", text: reply }]);
-      } catch (err) {
-        console.error(err);
-        setChatMessages((prev) => [
-          ...prev,
-          { role: "model", text: "Sorry, I ran into an error. Try again!" },
-        ]);
-      }
-    },
-    [chatMessages, selectedTopic]
-  );
-
-  // ── Render ────────────────────────────────────────────────
   if (loading || !user) {
     return (
-      <div className="page-loading">
-        <span className="spinner" />
+      <div className="min-h-screen flex items-center justify-center
+                      bg-gray-50 dark:bg-gray-950">
+        <div className="w-8 h-8 border-4 border-brand-400 border-t-transparent
+                        rounded-full animate-spin" />
       </div>
     );
   }
 
+  const completedTopics = progress.map((p) => p.topic);
+
   return (
-    <>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
       <Navbar />
 
-      <main className="dashboard">
-        {/* ── Left column ─────────────────────────────── */}
-        <aside className="dashboard-sidebar">
-          {/*
-            TopicSelector: Browse and pick a topic.
-            `completedTopics` is passed so it can visually mark finished ones.
-          */}
+      {/* Mobile sidebar toggle */}
+      <div className="md:hidden flex items-center gap-3 px-4 py-2.5
+                      border-b border-gray-200 dark:border-gray-800
+                      bg-white dark:bg-gray-900">
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="btn-ghost gap-2 text-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          {selectedTopic || "Pick a topic"}
+        </button>
+        {selectedTopic && (
+          <span className="text-xs text-brand-500 dark:text-brand-400 font-medium truncate">
+            {selectedTopic}
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-1 overflow-hidden relative">
+
+        {/* ── Sidebar ─────────────────────────────────────────── */}
+        {/* Mobile overlay */}
+        {sidebarOpen && (
+          <div
+            className="md:hidden fixed inset-0 bg-black/40 z-20"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        <aside className={`
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          md:translate-x-0
+          fixed md:static top-0 left-0 h-full z-30
+          w-64 shrink-0
+          bg-white dark:bg-gray-900
+          border-r border-gray-200 dark:border-gray-800
+          overflow-y-auto
+          transition-transform duration-300 ease-in-out
+          flex flex-col
+          pt-4 md:pt-0
+        `}>
+          {/* Close button — mobile only */}
+          <div className="md:hidden flex justify-end px-4 pb-2">
+            <button onClick={() => setSidebarOpen(false)} className="btn-ghost p-1.5">
+              ✕
+            </button>
+          </div>
+
+          {/* Progress summary */}
+          <div className="px-4 py-3 mx-3 mb-2 rounded-xl
+                          bg-brand-50 dark:bg-brand-900/20
+                          border border-brand-100 dark:border-brand-800/40">
+            <p className="text-xs font-semibold text-brand-600 dark:text-brand-400">
+              Progress
+            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 h-1.5 bg-brand-100 dark:bg-brand-900 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-brand-500 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min((completedTopics.length / 10) * 100, 100)}%` }}
+                />
+              </div>
+              <span className="text-xs text-brand-600 dark:text-brand-400 font-bold tabular-nums">
+                {completedTopics.length}/10
+              </span>
+            </div>
+          </div>
+
           <TopicSelector
             onSelectTopic={handleTopicSelect}
             selectedTopic={selectedTopic}
-            completedTopics={progress.map((p) => p.topic)}
+            completedTopics={completedTopics}
           />
 
-          {/* WeakAreasTracker: shows topics the user needs to review */}
-          <WeakAreasTracker
-            weakAreas={weakAreas}
-            onSelectTopic={handleTopicSelect} // clicking a weak area re-generates that lesson
-          />
+          <div className="mt-auto">
+            <WeakAreasTracker
+              weakAreas={weakAreas}
+              onSelectTopic={handleTopicSelect}
+            />
+          </div>
         </aside>
 
-        {/* ── Main content ─────────────────────────────── */}
-        <section className="dashboard-content">
-          {!selectedTopic && (
-            <div className="dashboard-empty">
-              <h2>Pick a topic to start learning 👈</h2>
-              <p>Your progress is saved automatically after each lesson.</p>
+        {/* ── Main content ─────────────────────────────────────── */}
+        <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
+
+          {/* Empty state */}
+          {!selectedTopic && !lessonLoading && (
+            <div className="flex flex-col items-center justify-center
+                            min-h-[60vh] text-center animate-fade-in">
+              <div className="w-20 h-20 rounded-3xl bg-brand-50 dark:bg-brand-900/30
+                              flex items-center justify-center text-5xl mb-5 shadow-inner">
+                🎓
+              </div>
+              <h2 className="text-2xl font-extrabold text-gray-800 dark:text-white mb-2">
+                Ready to learn?
+              </h2>
+              <p className="text-gray-500 dark:text-gray-400 max-w-xs">
+                Pick a topic from the sidebar and your AI tutor will generate
+                a personalized lesson in seconds.
+              </p>
+              <div className="md:hidden mt-5">
+                <button onClick={() => setSidebarOpen(true)} className="btn-primary">
+                  Browse Topics
+                </button>
+              </div>
             </div>
           )}
 
+          {/* Loading skeleton */}
           {lessonLoading && (
-            <div className="lesson-skeleton">
-              <div className="skeleton-line wide" />
-              <div className="skeleton-line" />
-              <div className="skeleton-line narrow" />
+            <div className="max-w-2xl animate-pulse space-y-4">
+              <div className="skeleton h-8 w-2/3" />
+              <div className="skeleton h-4 w-full" />
+              <div className="skeleton h-4 w-5/6" />
+              <div className="skeleton h-36 w-full mt-4 rounded-2xl" />
+              <div className="skeleton h-36 w-full rounded-2xl" />
+              <div className="skeleton h-48 w-full rounded-2xl" />
             </div>
           )}
 
+          {/* Error */}
           {lessonError && (
-            <div className="error-banner">
-              {lessonError}
-              <button onClick={() => handleTopicSelect(selectedTopic)}>Retry</button>
+            <div className="max-w-2xl card p-5 border-red-200 dark:border-red-800/50
+                            bg-red-50 dark:bg-red-900/10 flex items-start gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <p className="font-semibold text-red-700 dark:text-red-400 text-sm">
+                  {lessonError}
+                </p>
+                <button
+                  onClick={() => handleTopicSelect(selectedTopic)}
+                  className="text-xs text-red-500 dark:text-red-400 underline mt-1"
+                >
+                  Try again
+                </button>
+              </div>
             </div>
           )}
 
-          {/*
-            LessonDisplay: renders the AI-generated lesson + quiz.
-            It tells us when the quiz is done via onComplete.
-          */}
+          {/* Lesson + Chat */}
           {lesson && !lessonLoading && (
-            <LessonDisplay
-              lesson={lesson}
-              onComplete={handleLessonComplete}
-            />
-          )}
+            <>
+              {/* Topic badge */}
+              <div className="flex items-center gap-2 mb-5">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+                                 bg-brand-100 dark:bg-brand-900/40
+                                 text-brand-600 dark:text-brand-400">
+                  {selectedTopic}
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-600">
+                  Generated by Gemini 2.5 Flash
+                </span>
+              </div>
 
-          {/*
-            ChatInterface: persistent Q&A while a topic is active.
-            We pass messages as a prop so this component is pure/controlled.
-          */}
-          {selectedTopic && (
-            <ChatInterface
-              messages={chatMessages}
-              onSendMessage={handleSendMessage}
-              topic={selectedTopic}
-            />
+              <LessonDisplay lesson={lesson} onComplete={handleLessonComplete} />
+              <ChatInterface
+                messages={chatMessages}
+                onSendMessage={handleSendMessage}
+                topic={selectedTopic}
+              />
+
+              {/* Bottom padding */}
+              <div className="h-10" />
+            </>
           )}
-        </section>
-      </main>
-    </>
+        </main>
+      </div>
+    </div>
   );
 }

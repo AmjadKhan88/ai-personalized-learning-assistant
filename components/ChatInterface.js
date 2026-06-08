@@ -5,15 +5,23 @@ import { useRef, useEffect, useState } from "react";
 
 export default function ChatInterface({ messages, onSendMessage, topic }) {
   const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef(null);
+  const prevLenRef = useRef(messages.length);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Detect when AI finishes replying (message count grew by 1 with role "model")
+    if (messages.length > prevLenRef.current) {
+      setIsTyping(false);
+    }
+    prevLenRef.current = messages.length;
   }, [messages]);
 
   function handleSend() {
     const trimmed = input.trim();
     if (!trimmed) return;
+    setIsTyping(true);
     onSendMessage(trimmed);
     setInput("");
   }
@@ -26,80 +34,116 @@ export default function ChatInterface({ messages, onSendMessage, topic }) {
   }
 
   return (
-    <div style={{
-      border: "1px solid #e5e7eb", borderRadius: "12px",
-      overflow: "hidden", marginTop: "1.5rem", maxWidth: "720px"
-    }}>
+    <div className="card mt-6 overflow-hidden max-w-2xl">
+
       {/* Header */}
-      <div style={{ background: "#6366f1", padding: "0.75rem 1rem" }}>
-        <h3 style={{ color: "white", margin: 0, fontSize: "0.95rem", fontWeight: "600" }}>
-          💬 Ask anything about <em>{topic || "this lesson"}</em>
-        </h3>
+      <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800
+                      bg-gray-50 dark:bg-gray-800/50 flex items-center gap-2">
+        <span className="text-base">💬</span>
+        <div>
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            Chat with Tutor
+          </h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Ask anything about{" "}
+            <span className="text-brand-500 dark:text-brand-400 font-medium">
+              {topic || "this lesson"}
+            </span>
+          </p>
+        </div>
+        {/* Live indicator */}
+        <div className="ml-auto flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse-slow" />
+          <span className="text-xs text-gray-400 dark:text-gray-500">Gemini</span>
+        </div>
       </div>
 
       {/* Messages */}
-      <div style={{
-        height: "280px", overflowY: "auto", padding: "1rem",
-        display: "flex", flexDirection: "column", gap: "0.75rem",
-        background: "#fafafa"
-      }}>
+      <div className="h-64 overflow-y-auto p-4 flex flex-col gap-3
+                      bg-white dark:bg-gray-900">
         {messages.length === 0 && (
-          <p style={{ color: "#aaa", textAlign: "center", marginTop: "2rem", fontSize: "0.9rem" }}>
-            No messages yet. Ask a question about the lesson!
-          </p>
+          <div className="flex flex-col items-center justify-center h-full
+                          text-gray-300 dark:text-gray-700 gap-2">
+            <span className="text-4xl">🤖</span>
+            <p className="text-xs text-center">
+              Ask a question about the lesson
+              <br />and I&apos;ll explain it for you.
+            </p>
+          </div>
         )}
+
         {messages.map((msg, i) => (
           <div
             key={i}
-            style={{
-              alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-              background: msg.role === "user" ? "#6366f1" : "white",
-              color: msg.role === "user" ? "white" : "#333",
-              padding: "0.6rem 1rem",
-              borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-              maxWidth: "80%",
-              fontSize: "0.9rem",
-              lineHeight: "1.5",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-              border: msg.role === "user" ? "none" : "1px solid #e5e7eb"
-            }}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}
+                        animate-fade-in`}
           >
-            {msg.text}
+            {msg.role === "model" && (
+              <span className="w-6 h-6 rounded-full bg-brand-100 dark:bg-brand-900/40
+                               text-brand-600 dark:text-brand-400 flex items-center justify-center
+                               text-xs mr-2 mt-auto mb-0.5 shrink-0">
+                AI
+              </span>
+            )}
+            <div className={msg.role === "user" ? "bubble-user" : "bubble-ai"}>
+              {msg.text}
+            </div>
           </div>
         ))}
+
+        {/* Typing indicator */}
+        {isTyping && (
+          <div className="flex justify-start animate-fade-in">
+            <span className="w-6 h-6 rounded-full bg-brand-100 dark:bg-brand-900/40
+                             text-brand-600 dark:text-brand-400 flex items-center justify-center
+                             text-xs mr-2 shrink-0">
+              AI
+            </span>
+            <div className="bubble-ai">
+              <span className="flex gap-1 items-center h-4">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:300ms]" />
+              </span>
+            </div>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div style={{
-        display: "flex", gap: "0.5rem", padding: "0.75rem",
-        borderTop: "1px solid #e5e7eb", background: "white"
-      }}>
+      <div className="flex gap-2 p-3 border-t border-gray-100 dark:border-gray-800
+                      bg-gray-50 dark:bg-gray-800/50">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask a question… (Enter to send, Shift+Enter for new line)"
-          rows={2}
-          style={{
-            flex: 1, resize: "none", padding: "0.6rem 0.85rem",
-            border: "1px solid #d1d5db", borderRadius: "8px",
-            fontSize: "0.9rem", outline: "none", fontFamily: "inherit"
-          }}
+          placeholder="Ask a question… (Enter to send)"
+          rows={1}
+          className="flex-1 resize-none px-3.5 py-2.5 text-sm
+                     bg-white dark:bg-gray-900
+                     border border-gray-200 dark:border-gray-700
+                     rounded-xl outline-none
+                     text-gray-800 dark:text-gray-200
+                     placeholder-gray-400 dark:placeholder-gray-600
+                     focus:border-brand-400 dark:focus:border-brand-600
+                     focus:ring-2 focus:ring-brand-100 dark:focus:ring-brand-900/30
+                     transition-all duration-150 font-sans"
         />
         <button
           onClick={handleSend}
-          disabled={!input.trim()}
-          style={{
-            padding: "0 1.25rem",
-            background: input.trim() ? "#6366f1" : "#e5e7eb",
-            color: input.trim() ? "white" : "#9ca3af",
-            border: "none", borderRadius: "8px",
-            fontWeight: "600", cursor: input.trim() ? "pointer" : "not-allowed",
-            fontSize: "0.9rem", transition: "all 0.15s"
-          }}
+          disabled={!input.trim() || isTyping}
+          className="btn-primary px-4 self-end"
         >
-          Send
+          {isTyping ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          )}
         </button>
       </div>
     </div>

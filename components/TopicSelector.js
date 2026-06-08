@@ -2,50 +2,49 @@
 "use client";
 
 const TOPICS = [
-  "JavaScript Basics",
-  "React Fundamentals",
-  "Node.js & Express",
-  "MongoDB & Mongoose",
-  "Next.js App Router",
-  "TypeScript Essentials",
-  "REST API Design",
-  "Authentication & JWT",
-  "CSS & Tailwind",
-  "Git & GitHub",
+  { label: "JavaScript Basics",    icon: "⚡" },
+  { label: "React Fundamentals",   icon: "⚛️" },
+  { label: "Node.js & Express",    icon: "🟢" },
+  { label: "MongoDB & Mongoose",   icon: "🍃" },
+  { label: "Next.js App Router",   icon: "▲" },
+  { label: "TypeScript Essentials",icon: "🔷" },
+  { label: "REST API Design",      icon: "🔗" },
+  { label: "Authentication & JWT", icon: "🔒" },
+  { label: "CSS & Tailwind",       icon: "🎨" },
+  { label: "Git & GitHub",         icon: "🐙" },
 ];
 
 export default function TopicSelector({ onSelectTopic, selectedTopic, completedTopics }) {
   return (
-    <div style={{ padding: "1rem" }}>
-      <h2 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "0.75rem", color: "#333" }}>
-        📚 Topics
+    <div className="p-4">
+      <h2 className="text-xs font-bold uppercase tracking-widest
+                     text-gray-400 dark:text-gray-500 mb-3 px-1">
+        Topics
       </h2>
-      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-        {TOPICS.map((topic) => (
-          <li key={topic}>
-            <button
-              onClick={() => onSelectTopic(topic)}
-              style={{
-                width: "100%",
-                textAlign: "left",
-                padding: "0.6rem 0.85rem",
-                borderRadius: "8px",
-                border: selectedTopic === topic ? "2px solid #6366f1" : "2px solid transparent",
-                background: selectedTopic === topic ? "#eef2ff" : "#f9f9f9",
-                color: selectedTopic === topic ? "#4338ca" : "#444",
-                fontWeight: selectedTopic === topic ? "600" : "400",
-                cursor: "pointer",
-                fontSize: "0.9rem",
-                transition: "all 0.15s",
-              }}
-            >
-              {completedTopics?.includes(topic) && (
-                <span style={{ marginRight: "6px", color: "#22c55e" }}>✓</span>
-              )}
-              {topic}
-            </button>
-          </li>
-        ))}
+
+      <ul className="flex flex-col gap-1">
+        {TOPICS.map(({ label, icon }) => {
+          const isActive = selectedTopic === label;
+          const isDone   = completedTopics?.includes(label);
+          return (
+            <li key={label}>
+              <button
+                onClick={() => onSelectTopic(label)}
+                className={`topic-btn ${isActive ? "active" : ""}`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <span className="text-base leading-none">{icon}</span>
+                  <span className="flex-1 text-left">{label}</span>
+                  {isDone && (
+                    <span className="ml-auto text-green-500 dark:text-green-400 text-xs font-bold">
+                      ✓
+                    </span>
+                  )}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

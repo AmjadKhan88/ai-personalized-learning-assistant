@@ -5,18 +5,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithGoogle } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 
 export default function LoginPage() {
   const { user, loading } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState(null);
 
-  // If already logged in, skip login page
   useEffect(() => {
-    if (!loading && user) {
-      router.replace("/dashboard");
-    }
+    if (!loading && user) router.replace("/dashboard");
   }, [user, loading, router]);
 
   async function handleGoogleSignIn() {
@@ -24,7 +23,6 @@ export default function LoginPage() {
     setSigningIn(true);
     try {
       await signInWithGoogle();
-      // AuthContext detects the login → useEffect above fires → redirects to /dashboard
     } catch (err) {
       console.error("Sign-in error:", err);
       setError("Sign-in failed. Please try again.");
@@ -33,66 +31,81 @@ export default function LoginPage() {
     }
   }
 
-  // Don't flash the login UI while Firebase is checking existing session
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
-        <p>Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="w-8 h-8 border-4 border-brand-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <main style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      height: "100vh",
-      background: "#f5f5f5"
-    }}>
-      <div style={{
-        background: "white",
-        padding: "2.5rem",
-        borderRadius: "12px",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
-        textAlign: "center",
-        width: "100%",
-        maxWidth: "380px"
-      }}>
-        {/* Branding */}
-        <div style={{ marginBottom: "2rem" }}>
-          <span style={{ fontSize: "3rem" }}>🎓</span>
-          <h1 style={{ fontSize: "1.8rem", fontWeight: "700", margin: "0.5rem 0 0.25rem" }}>
+    <main className="min-h-screen flex items-center justify-center
+                     bg-gradient-to-br from-brand-50 via-white to-indigo-50
+                     dark:from-gray-950 dark:via-gray-900 dark:to-gray-950
+                     px-4 relative">
+
+      {/* Theme toggle — top right */}
+      <button
+        onClick={toggleTheme}
+        className="absolute top-5 right-5 btn-ghost text-lg"
+        aria-label="Toggle theme"
+      >
+        {theme === "dark" ? "☀️" : "🌙"}
+      </button>
+
+      {/* Decorative blobs */}
+      <div className="absolute top-0 left-0 w-72 h-72 bg-brand-200 dark:bg-brand-900/20
+                      rounded-full blur-3xl opacity-30 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-72 h-72 bg-indigo-200 dark:bg-indigo-900/20
+                      rounded-full blur-3xl opacity-30 translate-x-1/2 translate-y-1/2 pointer-events-none" />
+
+      {/* Card */}
+      <div className="card w-full max-w-sm p-8 animate-slide-up relative z-10">
+
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16
+                          bg-brand-100 dark:bg-brand-900/40 rounded-2xl mb-4
+                          text-4xl shadow-inner">
+            🎓
+          </div>
+          <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
             AI Tutor
           </h1>
-          <p style={{ color: "#666", fontSize: "0.95rem" }}>
-            Your Gemini-powered learning companion
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Gemini-powered personalized learning
           </p>
         </div>
 
-        {/* Google Sign-In Button */}
+        {/* Divider */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+            Sign in to continue
+          </span>
+          <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+        </div>
+
+        {/* Google button */}
         <button
           onClick={handleGoogleSignIn}
           disabled={signingIn}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "10px",
-            width: "100%",
-            padding: "0.75rem 1.25rem",
-            border: "1px solid #ddd",
-            borderRadius: "8px",
-            background: signingIn ? "#f9f9f9" : "white",
-            cursor: signingIn ? "not-allowed" : "pointer",
-            fontSize: "1rem",
-            fontWeight: "500",
-            color: "#333",
-            transition: "background 0.2s"
-          }}
+          className="w-full flex items-center justify-center gap-3
+                     px-5 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700
+                     bg-white dark:bg-gray-800
+                     hover:bg-gray-50 dark:hover:bg-gray-750
+                     hover:border-brand-300 dark:hover:border-brand-600
+                     text-gray-700 dark:text-gray-200 font-semibold text-sm
+                     shadow-sm hover:shadow-md
+                     disabled:opacity-60 disabled:cursor-not-allowed
+                     transition-all duration-200"
         >
           {signingIn ? (
-            "Signing in…"
+            <>
+              <div className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+              Signing in…
+            </>
           ) : (
             <>
               <GoogleIcon />
@@ -101,25 +114,28 @@ export default function LoginPage() {
           )}
         </button>
 
-        {/* Error message */}
+        {/* Error */}
         {error && (
-          <p style={{ color: "red", marginTop: "1rem", fontSize: "0.9rem" }}>
+          <div className="mt-4 px-4 py-3 bg-red-50 dark:bg-red-900/20
+                          border border-red-200 dark:border-red-800
+                          rounded-xl text-red-600 dark:text-red-400 text-sm text-center">
             {error}
-          </p>
+          </div>
         )}
 
-        <p style={{ color: "#aaa", fontSize: "0.8rem", marginTop: "1.5rem" }}>
-          Your progress is saved securely to Firestore.
+        {/* Fine print */}
+        <p className="text-center text-xs text-gray-400 dark:text-gray-600 mt-6 leading-relaxed">
+          Progress saved securely to Firestore.
+          <br />No passwords — Google handles auth.
         </p>
       </div>
     </main>
   );
 }
 
-// Inline Google "G" SVG icon
 function GoogleIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
       <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>

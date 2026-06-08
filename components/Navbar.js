@@ -1,68 +1,85 @@
 // components/Navbar.js
-// ─────────────────────────────────────────────────────────────
-// WHY: A standalone Navbar component keeps layout concerns out
-// of page files. It reads auth state from context (not props)
-// so it works identically on every page without any wiring.
-// ─────────────────────────────────────────────────────────────
-
 "use client";
 
 import { useRouter } from "next/navigation";
 import { logOut } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
+import Image from "next/image";
 
 export default function Navbar() {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const router = useRouter();
 
   async function handleLogout() {
     try {
       await logOut();
-      // After signOut, Firebase auth state updates → AuthContext clears user
-      // We then redirect manually to ensure a clean slate
       router.push("/login");
     } catch (err) {
       console.error("Logout error:", err);
     }
   }
 
-  // Don't render the navbar at all when unauthenticated
-  // (login page handles its own layout)
   if (!user) return null;
 
   return (
-    <header className="navbar">
-      {/* Brand / Logo */}
-      <div className="navbar-brand">
-        <span className="navbar-logo">🎓</span>
-        <span className="navbar-title">AI Tutor</span>
+    <header className="sticky top-0 z-50
+                       bg-white/80 dark:bg-gray-900/80
+                       backdrop-blur-md
+                       border-b border-gray-200 dark:border-gray-800
+                       px-4 md:px-6 h-14 flex items-center justify-between">
+
+      {/* Brand */}
+      <div className="flex items-center gap-2.5">
+        <span className="text-2xl">🎓</span>
+        <span className="font-extrabold text-lg text-gray-900 dark:text-white tracking-tight">
+          AI Tutor
+        </span>
+        <span className="hidden sm:inline-flex items-center px-2 py-0.5
+                         text-xs font-semibold rounded-full
+                         bg-brand-100 dark:bg-brand-900/40
+                         text-brand-600 dark:text-brand-400">
+          Beta
+        </span>
       </div>
 
-      {/* User info + actions */}
-      <div className="navbar-user">
-        {/* 
-          user.photoURL comes from Google OAuth — it's the profile picture.
-          We fall back to initials if the photo fails to load.
-        */}
+      {/* Right side */}
+      <div className="flex items-center gap-2 md:gap-3">
+
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          className="btn-ghost w-9 h-9 p-0 text-base"
+          aria-label="Toggle theme"
+        >
+          {theme === "dark" ? "☀️" : "🌙"}
+        </button>
+
+        {/* Avatar */}
         {user.photoURL ? (
           <img
-            className="navbar-avatar"
             src={user.photoURL}
             alt={user.displayName || "User"}
-            referrerPolicy="no-referrer" // Required for Google-hosted avatars
+            referrerPolicy="no-referrer"
+            className="w-8 h-8 rounded-full object-cover ring-2 ring-brand-200 dark:ring-brand-800"
           />
         ) : (
-          <div className="navbar-avatar-fallback">
+          <div className="w-8 h-8 rounded-full bg-brand-500 text-white
+                          flex items-center justify-center font-bold text-sm
+                          ring-2 ring-brand-200 dark:ring-brand-800">
             {(user.displayName || user.email || "?")[0].toUpperCase()}
           </div>
         )}
 
-        <span className="navbar-name">
-          {/* displayName is the full name from Google; email is the fallback */}
+        {/* Name — hidden on mobile */}
+        <span className="hidden md:block text-sm font-medium
+                         text-gray-700 dark:text-gray-300 max-w-[140px] truncate">
           {user.displayName || user.email}
         </span>
 
-        <button className="navbar-logout-btn" onClick={handleLogout}>
+        {/* Logout */}
+        <button onClick={handleLogout} className="btn-ghost text-xs px-3 py-1.5">
           Log out
         </button>
       </div>

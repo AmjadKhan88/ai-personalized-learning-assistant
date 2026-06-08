@@ -3,36 +3,41 @@
 
 export default function WeakAreasTracker({ weakAreas, onSelectTopic }) {
   return (
-    <div style={{ padding: "1rem", marginTop: "0.5rem" }}>
-      <h2 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "0.75rem", color: "#333" }}>
-        🔍 Review These
+    <div className="p-4 border-t border-gray-100 dark:border-gray-800">
+      <h2 className="text-xs font-bold uppercase tracking-widest
+                     text-gray-400 dark:text-gray-500 mb-3 px-1">
+        Review These
       </h2>
+
       {!weakAreas || weakAreas.length === 0 ? (
-        <p style={{ color: "#aaa", fontSize: "0.85rem" }}>
+        <p className="text-xs text-gray-400 dark:text-gray-600 px-1">
           None yet — keep learning! 💪
         </p>
       ) : (
         <>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+          <ul className="flex flex-col gap-1">
             {weakAreas.map((area, i) => (
               <li key={i}>
                 <button
                   onClick={() => onSelectTopic(area)}
-                  style={{
-                    width: "100%", textAlign: "left",
-                    padding: "0.6rem 0.85rem", borderRadius: "8px",
-                    border: "2px solid #fde68a", background: "#fffbeb",
-                    color: "#92400e", cursor: "pointer", fontSize: "0.85rem",
-                    fontWeight: "500", transition: "all 0.15s"
-                  }}
+                  className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-medium
+                             border-2 border-amber-200 dark:border-amber-800/60
+                             bg-amber-50 dark:bg-amber-900/20
+                             text-amber-700 dark:text-amber-400
+                             hover:border-amber-400 dark:hover:border-amber-600
+                             hover:bg-amber-100 dark:hover:bg-amber-900/40
+                             transition-all duration-150 cursor-pointer"
                 >
-                  ⚠️ {area}
+                  <span className="flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span className="truncate">{area}</span>
+                  </span>
                 </button>
               </li>
             ))}
           </ul>
-          <p style={{ color: "#aaa", fontSize: "0.75rem", marginTop: "0.5rem" }}>
-            Click any topic to review it
+          <p className="text-xs text-gray-400 dark:text-gray-600 mt-2 px-1">
+            Click to revisit
           </p>
         </>
       )}

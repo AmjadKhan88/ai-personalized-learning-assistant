@@ -34,37 +34,54 @@ export default function LessonDisplay({ lesson, onComplete }) {
     onComplete(finalScore, wrongTopics);
   }
 
+  const allAnswered = lesson.quiz && Object.keys(answers).length >= lesson.quiz.length;
+
   return (
-    <article style={{ padding: "1.5rem", maxWidth: "720px" }}>
-      <h2 style={{ fontSize: "1.5rem", fontWeight: "700", marginBottom: "0.5rem", color: "#1e1e2e" }}>
-        {lesson.title}
-      </h2>
-      <p style={{ color: "#555", marginBottom: "1.5rem", lineHeight: "1.6" }}>
-        {lesson.summary}
-      </p>
+    <article className="animate-slide-up max-w-2xl">
+
+      {/* Header */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white
+                       tracking-tight leading-tight mb-2">
+          {lesson.title}
+        </h2>
+        <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
+          {lesson.summary}
+        </p>
+      </div>
 
       {/* Sections */}
-      {lesson.sections?.map((sec, i) => (
-        <section key={i} style={{ marginBottom: "1.25rem" }}>
-          <h3 style={{ fontSize: "1.1rem", fontWeight: "600", color: "#4338ca", marginBottom: "0.4rem" }}>
-            {sec.heading}
-          </h3>
-          <p style={{ color: "#444", lineHeight: "1.7" }}>{sec.content}</p>
-        </section>
-      ))}
+      <div className="flex flex-col gap-5 mb-6">
+        {lesson.sections?.map((sec, i) => (
+          <section key={i}
+            className="card p-5 hover:shadow-md transition-shadow duration-200">
+            <h3 className="text-sm font-bold uppercase tracking-wide
+                           text-brand-500 dark:text-brand-400 mb-2">
+              {sec.heading}
+            </h3>
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm">
+              {sec.content}
+            </p>
+          </section>
+        ))}
+      </div>
 
       {/* Key Points */}
       {lesson.keyPoints?.length > 0 && (
-        <div style={{
-          background: "#f0fdf4", border: "1px solid #bbf7d0",
-          borderRadius: "10px", padding: "1rem 1.25rem", marginBottom: "1.5rem"
-        }}>
-          <h3 style={{ fontWeight: "700", marginBottom: "0.5rem", color: "#15803d" }}>
-            ✅ Key Takeaways
+        <div className="card p-5 mb-6
+                        bg-green-50 dark:bg-green-900/10
+                        border-green-200 dark:border-green-800/50">
+          <h3 className="flex items-center gap-2 font-bold text-green-700 dark:text-green-400 mb-3 text-sm">
+            <span>✅</span> Key Takeaways
           </h3>
-          <ul style={{ paddingLeft: "1.25rem", margin: 0 }}>
+          <ul className="flex flex-col gap-2">
             {lesson.keyPoints.map((kp, i) => (
-              <li key={i} style={{ color: "#166534", marginBottom: "0.3rem" }}>{kp}</li>
+              <li key={i}
+                className="flex items-start gap-2.5
+                           text-sm text-green-800 dark:text-green-300">
+                <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                {kp}
+              </li>
             ))}
           </ul>
         </div>
@@ -72,77 +89,74 @@ export default function LessonDisplay({ lesson, onComplete }) {
 
       {/* Quiz */}
       {lesson.quiz?.length > 0 && (
-        <div style={{
-          background: "#fafafa", border: "1px solid #e5e7eb",
-          borderRadius: "10px", padding: "1.25rem", marginTop: "1rem"
-        }}>
-          <h3 style={{ fontWeight: "700", marginBottom: "1rem", color: "#1e1e2e" }}>
-            🧠 Quick Quiz
+        <div className="card p-5">
+          <h3 className="flex items-center gap-2 font-bold
+                         text-gray-900 dark:text-white mb-5 text-sm">
+            <span>🧠</span> Quick Quiz
           </h3>
-          {lesson.quiz.map((q, idx) => (
-            <div key={idx} style={{ marginBottom: "1.25rem" }}>
-              <p style={{ fontWeight: "600", marginBottom: "0.5rem" }}>
-                Q{idx + 1}: {q.question}
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                {q.options.map((opt) => {
-                  let bg = "#fff";
-                  let border = "1px solid #d1d5db";
-                  let color = "#333";
-                  if (submitted) {
-                    if (opt === q.answer) { bg = "#dcfce7"; border = "1px solid #22c55e"; color = "#15803d"; }
-                    else if (opt === answers[idx]) { bg = "#fee2e2"; border = "1px solid #ef4444"; color = "#b91c1c"; }
-                  } else if (answers[idx] === opt) {
-                    bg = "#eef2ff"; border = "1px solid #6366f1"; color = "#4338ca";
-                  }
-                  return (
-                    <button
-                      key={opt}
-                      onClick={() => handleAnswer(idx, opt)}
-                      disabled={submitted}
-                      style={{
-                        textAlign: "left", padding: "0.6rem 1rem",
-                        borderRadius: "7px", border, background: bg,
-                        color, cursor: submitted ? "default" : "pointer",
-                        fontSize: "0.9rem", transition: "all 0.15s"
-                      }}
-                    >
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
 
-          {!submitted ? (
-            <button
-              onClick={handleSubmit}
-              disabled={Object.keys(answers).length < lesson.quiz.length}
-              style={{
-                marginTop: "0.5rem", padding: "0.7rem 1.5rem",
-                background: Object.keys(answers).length < lesson.quiz.length ? "#e5e7eb" : "#6366f1",
-                color: Object.keys(answers).length < lesson.quiz.length ? "#9ca3af" : "white",
-                border: "none", borderRadius: "8px", fontWeight: "600",
-                cursor: Object.keys(answers).length < lesson.quiz.length ? "not-allowed" : "pointer",
-                fontSize: "0.95rem"
-              }}
-            >
-              Submit Quiz
-            </button>
-          ) : (
-            <div style={{
-              marginTop: "1rem", padding: "0.75rem 1rem",
-              background: score >= 70 ? "#f0fdf4" : "#fff7ed",
-              borderRadius: "8px", fontWeight: "600",
-              color: score >= 70 ? "#15803d" : "#c2410c"
-            }}>
-              Your score: {score}%
-              {score === 100 && " 🎉 Perfect!"}
-              {score >= 70 && score < 100 && " 👍 Good work!"}
-              {score < 70 && " 📚 Review the weak areas below."}
-            </div>
-          )}
+          <div className="flex flex-col gap-6">
+            {lesson.quiz.map((q, idx) => (
+              <div key={idx}>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+                  <span className="text-brand-500 dark:text-brand-400 mr-1">
+                    Q{idx + 1}.
+                  </span>
+                  {q.question}
+                </p>
+                <div className="flex flex-col gap-2">
+                  {q.options.map((opt) => {
+                    let cls = "quiz-option";
+                    if (submitted) {
+                      if (opt === q.answer) cls += " correct";
+                      else if (opt === answers[idx]) cls += " wrong";
+                    } else if (answers[idx] === opt) {
+                      cls += " selected";
+                    }
+                    return (
+                      <button
+                        key={opt}
+                        className={cls}
+                        onClick={() => handleAnswer(idx, opt)}
+                        disabled={submitted}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Submit / Result */}
+          <div className="mt-6">
+            {!submitted ? (
+              <button
+                onClick={handleSubmit}
+                disabled={!allAnswered}
+                className="btn-primary w-full py-3"
+              >
+                {allAnswered ? "Submit Quiz" : `Answer all ${lesson.quiz.length} questions`}
+              </button>
+            ) : (
+              <div className={`rounded-xl px-5 py-4 text-center font-semibold
+                ${score >= 70
+                  ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/50"
+                  : "bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50"
+                }`}>
+                <span className="text-2xl block mb-1">
+                  {score === 100 ? "🎉" : score >= 70 ? "👍" : "📚"}
+                </span>
+                Score: {score}%
+                <span className="block text-sm font-normal mt-0.5 opacity-80">
+                  {score === 100 && "Perfect — flawless!"}
+                  {score >= 70 && score < 100 && "Great work! Keep it up."}
+                  {score < 70 && "Review the weak areas below and try again."}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </article>
